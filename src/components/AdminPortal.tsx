@@ -510,8 +510,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
   // --- Login Gate ---
   if (!adminUser) {
     return (
-      <div className="max-w-lg mx-auto py-8 pb-20">
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-6">
+      <div className="w-full min-h-[calc(100vh-11rem)] flex items-center justify-center py-6">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-6 max-w-lg w-full">
           <div className="flex items-center gap-4">
             <img
               src={FOUNDATION_LOGO_PATH}
@@ -749,7 +749,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
         }));
 
   return (
-    <div className="max-w-7xl mx-auto pb-8">
+    <div className="w-full pb-6">
       <div className="print:hidden grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Sidebar Navigation */}
         <aside className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-5 space-y-5">

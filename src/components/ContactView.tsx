@@ -13,7 +13,7 @@ interface ContactViewProps {
 
 export const ContactView: React.FC<ContactViewProps> = ({ onBookNow }) => {
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-16">
+    <div className="w-full space-y-6 pb-6">
       <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <img

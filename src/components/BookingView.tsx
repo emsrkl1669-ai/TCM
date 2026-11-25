@@ -231,7 +231,7 @@ export const BookingView: React.FC<BookingViewProps> = ({
   const hasAnyOpenDate = Boolean(firstOpenDate);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 pb-8">
+    <div className="w-full space-y-4 pb-6">
       <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">

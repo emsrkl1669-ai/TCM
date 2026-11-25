@@ -108,7 +108,7 @@ export default function App() {
         <Navbar activeView={activeView} onNavigate={handleNavigate} />
       </div>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 pb-16 md:pb-6 print:p-0 print:max-w-none">
+      <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 pb-16 md:pb-6 print:p-0 print:max-w-none">
         {activeView === 'landing' && (
           <LandingView
             callingQueueNo={callingQueueNo}
@@ -156,7 +156,7 @@ export default function App() {
       </main>
 
       <footer className="hidden md:block print:hidden bg-white border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600">
           <div className="flex items-center gap-3">
             <img
               src={FOUNDATION_LOGO_PATH}

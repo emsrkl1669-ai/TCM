@@ -47,7 +47,7 @@ export const HistoryView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-16">
+    <div className="w-full space-y-5 pb-6">
       <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-4">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">

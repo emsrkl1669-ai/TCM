@@ -141,7 +141,7 @@ export const DigitalTicketView: React.FC<DigitalTicketViewProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-16">
+    <div className="w-full space-y-5 pb-6">
       <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-emerald-900">
           <CheckCircle2 className="w-6 h-6 text-emerald-700 shrink-0" />
