@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { signInWithPopup, signOut } from 'firebase/auth';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import {
   Activity,
   AlertCircle,
@@ -59,12 +59,17 @@ import {
   type ReportPayload,
 } from '../lib/reportExport';
 
-interface AdminUser {
+export interface AdminUser {
   id: number;
   username: string;
   displayName: string;
   email: string | null;
   role: AdminRole;
+}
+
+export interface AdminSessionState {
+  user: AdminUser;
+  token: string;
 }
 
 interface AdminBookingRow {
@@ -125,12 +130,19 @@ interface AuditLogRecord {
 type AdminTab = 'dashboard' | 'schedule' | 'reports' | 'staff';
 
 interface AdminPortalProps {
+  session: AdminSessionState | null;
+  onSessionChange: (next: AdminSessionState | null) => void;
   onConfigChanged: () => void;
 }
 
-export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => {
-  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
-  const [authToken, setAuthToken] = useState<string>('');
+export const AdminPortal: React.FC<AdminPortalProps> = ({
+  session,
+  onSessionChange,
+  onConfigChanged,
+}) => {
+  const adminUser = session?.user ?? null;
+  const authToken = session?.token ?? '';
+  const manualLogoutRef = useRef(false);
   const [authMode, setAuthMode] = useState<'google' | 'password'>('password');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -226,8 +238,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
       });
       const json = await parseResponsePayload(res);
       if (res.status === 401) {
-        setAdminUser(null);
-        setAuthToken('');
+        onSessionChange(null);
         setAuthError(json.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
         throw new Error(json.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
       }
@@ -236,7 +247,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
       }
       return json;
     },
-    [getBearerToken],
+    [getBearerToken, onSessionChange],
   );
 
   const loadDashboard = useCallback(async () => {
@@ -314,23 +325,57 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
     if (activeTab === 'staff') loadStaffAndLogs();
   }, [activeTab, loadReports, loadStaffAndLogs]);
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (adminUser || manualLogoutRef.current || !fbUser || !fbUser.emailVerified) return;
+      try {
+        const idToken = await fbUser.getIdToken();
+        const res = await fetch('/api/admin/auth/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+        });
+        const json = await parseResponsePayload(res);
+        if (res.ok && json.user) {
+          onSessionChange({
+            user: json.user,
+            token: json.token || idToken,
+          });
+        }
+      } catch {
+        // Silent fallback to login form
+      }
+    });
+    return () => unsub();
+  }, [adminUser, onSessionChange]);
+
   const formatGoogleAuthError = (err: unknown): string => {
     if (err && typeof err === 'object' && 'code' in err) {
       const code = String((err as { code?: string }).code || '');
       if (code === 'auth/unauthorized-domain') {
         return 'โดเมนนี้ยังไม่ได้รับอนุญาตสำหรับ Google Sign-In กรุณาเข้าสู่ระบบด้วยแท็บ "ชื่อผู้ใช้ + รหัสผ่าน" แทน';
       }
-      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
-        return 'เบราว์เซอร์บล็อกหน้าต่างเข้าสู่ระบบ Google กรุณาอนุญาต Popup หรือเข้าสู่ระบบด้วย "ชื่อผู้ใช้ + รหัสผ่าน"';
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/operation-not-supported-in-this-environment' ||
+        code === 'auth/web-storage-unsupported'
+      ) {
+        return 'เบราว์เซอร์จำกัดหน้าต่าง Popup หรือพื้นที่จัดเก็บในหน้านี้ กรุณาเข้าสู่ระบบด้วยแท็บ "ชื่อผู้ใช้ + รหัสผ่าน" แทน';
       }
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
         return 'ยกเลิกการเข้าสู่ระบบด้วย Google แล้ว กรุณาลองใหม่หรือใช้ "ชื่อผู้ใช้ + รหัสผ่าน"';
+      }
+      if (code === 'auth/internal-error' || code === 'auth/network-request-failed') {
+        return 'ไม่สามารถเชื่อมต่อ Google Sign-In จากเบราว์เซอร์นี้ได้ กรุณาลองใหม่หรือเข้าสู่ระบบด้วยแท็บ "ชื่อผู้ใช้ + รหัสผ่าน"';
       }
     }
     return err instanceof Error ? err.message : 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ';
   };
 
   const handleGoogleSignIn = async () => {
+    manualLogoutRef.current = false;
     setAuthLoading(true);
     setAuthError('');
     try {
@@ -345,11 +390,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
       });
       const json = await parseResponsePayload(res);
       if (!res.ok) throw new Error(json.error || 'บัญชี Google นี้ไม่มีสิทธิ์เข้าถึง');
-      if (json.user) {
-        await ensureGoogleAdminDocInFirestore(json.user);
-      }
-      setAuthToken(json.token || idToken);
-      setAdminUser(json.user);
+      if (!json.user) throw new Error('ไม่สามารถยืนยันข้อมูลผู้ดูแลระบบได้');
+
+      onSessionChange({
+        user: json.user,
+        token: json.token || idToken,
+      });
+      void ensureGoogleAdminDocInFirestore(json.user).catch((syncErr) => {
+        console.warn('Firestore admin profile sync warning:', syncErr);
+      });
     } catch (err: unknown) {
       setAuthError(formatGoogleAuthError(err));
     } finally {
@@ -359,6 +408,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    manualLogoutRef.current = false;
     setAuthLoading(true);
     setAuthError('');
     try {
@@ -376,8 +426,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
       if (!json.token || !json.user) {
         throw new Error('ไม่สามารถสร้างเซสชันผู้ดูแลระบบได้ กรุณาลองใหม่อีกครั้ง');
       }
-      setAuthToken(json.token);
-      setAdminUser(json.user);
+      onSessionChange({
+        user: json.user,
+        token: json.token,
+      });
       setPassword('');
     } catch (err: unknown) {
       setAuthError(err instanceof Error ? err.message : 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
@@ -387,13 +439,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
   };
 
   const handleLogout = async () => {
+    manualLogoutRef.current = true;
     try {
       await signOut(auth);
     } catch {
       // Ignore if signed in via staff token
     }
-    setAdminUser(null);
-    setAuthToken('');
+    onSessionChange(null);
     setDashboard(null);
   };
 

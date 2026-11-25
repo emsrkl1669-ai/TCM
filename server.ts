@@ -294,7 +294,17 @@ async function startServer() {
       });
     } catch (error) {
       console.error('Google admin auth failed:', error);
-      res.status(401).json({ error: 'การเข้าสู่ระบบด้วย Google ไม่สำเร็จ' });
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: string }).code || '')
+          : '';
+      if (code === 'auth/id-token-expired') {
+        return res.status(401).json({ error: 'โทเคน Google หมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง' });
+      }
+      if (code === 'auth/argument-invalid' || code === 'auth/invalid-id-token') {
+        return res.status(401).json({ error: 'โทเคนยืนยันตัวตน Google ไม่ตรงกับโปรเจกต์ กรุณารีเฟรชหน้าเว็บแล้วลองใหม่' });
+      }
+      res.status(401).json({ error: 'การเข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่หรือใช้ชื่อผู้ใช้และรหัสผ่าน' });
     }
   });
 

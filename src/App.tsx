@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { AdminPortal } from './components/AdminPortal';
+import { AdminPortal, type AdminSessionState } from './components/AdminPortal';
 import { BookingView } from './components/BookingView';
 import { ContactView } from './components/ContactView';
 import { DigitalTicketView } from './components/DigitalTicketView';
@@ -41,6 +41,7 @@ export default function App() {
   const [todayTotal, setTodayTotal] = useState<number>(0);
   const [todayWaiting, setTodayWaiting] = useState<number>(0);
   const [statusSearchQuery, setStatusSearchQuery] = useState<string>('');
+  const [adminSession, setAdminSession] = useState<AdminSessionState | null>(null);
   const [currentTicket, setCurrentTicket] = useState<TicketData | null>(() => {
     try {
       const saved = sessionStorage.getItem('rk_last_ticket');
@@ -180,7 +181,11 @@ export default function App() {
         )}
 
         {activeView === 'admin' && (
-          <AdminPortal onConfigChanged={loadClinicSummary} />
+          <AdminPortal
+            session={adminSession}
+            onSessionChange={setAdminSession}
+            onConfigChanged={loadClinicSummary}
+          />
         )}
       </main>
 
