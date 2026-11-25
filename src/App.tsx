@@ -18,6 +18,10 @@ import {
   FOUNDATION_PHONE,
   getBangkokDateStr,
 } from './lib/constants';
+import {
+  subscribeClinicConfig,
+  subscribeScheduleDates,
+} from './lib/firestoreSync';
 import type { TicketData } from './lib/ticketExport';
 
 interface ClinicConfigState {
@@ -74,6 +78,31 @@ export default function App() {
 
   useEffect(() => {
     loadClinicSummary();
+    const unsubConfig = subscribeClinicConfig((fsCfg) => {
+      setConfig((prev) => ({
+        ...prev,
+        bookingPaused: fsCfg.bookingPaused,
+        pauseReason: fsCfg.pauseReason,
+      }));
+    });
+    const unsubDates = subscribeScheduleDates((fsDates) => {
+      setConfig((prev) => {
+        const merged = new Map<
+          string,
+          { dateStr: string; isOpen: boolean; maxPerSlot: number; note?: string | null }
+        >();
+        for (const d of prev.dates) merged.set(d.dateStr, d);
+        for (const d of fsDates) merged.set(d.dateStr, d);
+        return {
+          ...prev,
+          dates: Array.from(merged.values()).sort((a, b) => a.dateStr.localeCompare(b.dateStr)),
+        };
+      });
+    });
+    return () => {
+      unsubConfig();
+      unsubDates();
+    };
   }, [loadClinicSummary]);
 
   const handleNavigate = (view: AppView) => {

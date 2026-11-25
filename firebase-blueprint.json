@@ -1,0 +1,391 @@
+{
+  "entities": {
+    "ClinicConfig": {
+      "title": "ClinicConfig",
+      "description": "Global online booking pause configuration for the acupuncture clinic.",
+      "type": "object",
+      "properties": {
+        "bookingPaused": {
+          "type": "boolean",
+          "description": "Whether public online booking is temporarily paused."
+        },
+        "pauseReason": {
+          "type": "string",
+          "maxLength": 240,
+          "description": "Public announcement reason shown when booking is paused."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when settings were last updated."
+        },
+        "updatedBy": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Admin UID or username that last modified clinic settings."
+        }
+      },
+      "required": ["bookingPaused", "pauseReason", "updatedAt", "updatedBy"]
+    },
+    "ScheduleDate": {
+      "title": "ScheduleDate",
+      "description": "Admin-defined open or closed service date for acupuncture appointments.",
+      "type": "object",
+      "properties": {
+        "dateStr": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Service date in YYYY-MM-DD format."
+        },
+        "isOpen": {
+          "type": "boolean",
+          "description": "Whether citizens can book appointments on this date."
+        },
+        "maxPerSlot": {
+          "type": "integer",
+          "description": "Maximum regular queues allowed per time slot (default 5)."
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Administrative note for the date."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last update."
+        }
+      },
+      "required": ["dateStr", "isOpen", "maxPerSlot", "note", "updatedAt"]
+    },
+    "PublicQueueItem": {
+      "title": "PublicQueueItem",
+      "description": "Non-PII public queue status projection for the live clinic queue board.",
+      "type": "object",
+      "properties": {
+        "bookingId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Booking identifier matching the corresponding booking document."
+        },
+        "queueNo": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 16,
+          "pattern": "^[A-Z][0-9]{3,}$",
+          "description": "Queue ticket number such as A001 or S001."
+        },
+        "queueType": {
+          "type": "string",
+          "enum": ["regular", "special"],
+          "description": "Queue category."
+        },
+        "bookingDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Appointment date in YYYY-MM-DD format."
+        },
+        "bookingTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 40,
+          "description": "Time slot label."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "calling", "completed", "cancelled"],
+          "description": "Current live queue status."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last queue status update."
+        }
+      },
+      "required": ["bookingId", "queueNo", "queueType", "bookingDate", "bookingTime", "status", "updatedAt"]
+    },
+    "BookingRecord": {
+      "title": "BookingRecord",
+      "description": "Protected patient appointment booking record containing PII (admin access only).",
+      "type": "object",
+      "properties": {
+        "bookingId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Unique booking identifier."
+        },
+        "queueNo": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 16,
+          "pattern": "^[A-Z][0-9]{3,}$",
+          "description": "Assigned queue number."
+        },
+        "queueType": {
+          "type": "string",
+          "enum": ["regular", "special"],
+          "description": "Regular or special urgent queue."
+        },
+        "bookingDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Appointment date in YYYY-MM-DD format."
+        },
+        "bookingTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 40,
+          "description": "Time slot label."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "calling", "completed", "cancelled"],
+          "description": "Appointment workflow state."
+        },
+        "fullName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Patient full name."
+        },
+        "age": {
+          "type": "integer",
+          "description": "Patient age in years."
+        },
+        "disease": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Chronic conditions or symptoms."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "minLength": 9,
+          "maxLength": 15,
+          "pattern": "^[0-9]{9,15}$",
+          "description": "Patient contact phone number."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Administrative notes."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "bookingId",
+        "queueNo",
+        "queueType",
+        "bookingDate",
+        "bookingTime",
+        "status",
+        "fullName",
+        "age",
+        "disease",
+        "phoneNumber",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TreatmentRecord": {
+      "title": "TreatmentRecord",
+      "description": "Protected acupuncture treatment history entry linked to a completed booking.",
+      "type": "object",
+      "properties": {
+        "bookingId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Referenced booking identifier."
+        },
+        "queueNo": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 16,
+          "description": "Queue number on visit day."
+        },
+        "visitDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Visit date in YYYY-MM-DD format."
+        },
+        "patientName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Patient name."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "minLength": 9,
+          "maxLength": 15,
+          "description": "Patient phone number."
+        },
+        "providerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Attending practitioner name."
+        },
+        "diagnosis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "description": "Clinical diagnosis or symptoms."
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "Post-treatment recommendation."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of record creation."
+        }
+      },
+      "required": [
+        "bookingId",
+        "queueNo",
+        "visitDate",
+        "patientName",
+        "phoneNumber",
+        "providerName",
+        "diagnosis",
+        "createdAt"
+      ]
+    },
+    "AdminAccount": {
+      "title": "AdminAccount",
+      "description": "Authorized clinic staff or super-admin profile keyed by Firebase UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Authentication UID."
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Verified staff Google email."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Staff display name."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["staff", "super_admin"],
+          "description": "Role-based access control level."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether account is active."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": ["uid", "email", "displayName", "role", "isActive", "updatedAt"]
+    },
+    "AuditLogEntry": {
+      "title": "AuditLogEntry",
+      "description": "Immutable operational audit log for clinic staff actions.",
+      "type": "object",
+      "properties": {
+        "actorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Firebase UID of acting staff member."
+        },
+        "actorEmail": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Email or username of acting staff member."
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Action code."
+        },
+        "targetPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Affected resource path or ID."
+        },
+        "details": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Human-readable details."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the event."
+        }
+      },
+      "required": ["actorUid", "actorEmail", "action", "targetPath", "details", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/clinic_config/{configId}": {
+      "schema": { "$ref": "#/entities/ClinicConfig" },
+      "description": "Public clinic availability configuration (only document 'settings')."
+    },
+    "/schedule_dates/{dateStr}": {
+      "schema": { "$ref": "#/entities/ScheduleDate" },
+      "description": "Admin-defined open and closed calendar dates."
+    },
+    "/public_queue/{bookingId}": {
+      "schema": { "$ref": "#/entities/PublicQueueItem" },
+      "description": "Public non-PII live queue feed."
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/BookingRecord" },
+      "description": "Protected patient booking records with PII (admin-only)."
+    },
+    "/treatment_history/{recordId}": {
+      "schema": { "$ref": "#/entities/TreatmentRecord" },
+      "description": "Protected patient treatment history records (admin-only)."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminAccount" },
+      "description": "Authorized clinic staff and super-admin directory."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLogEntry" },
+      "description": "Append-only operational audit log."
+    }
+  }
+}

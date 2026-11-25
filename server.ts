@@ -544,6 +544,11 @@ async function startServer() {
     }
   });
 
+  // Catch unmatched /api routes as JSON so they never fall through to HTML 404
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: `ไม่พบ API ปลายทาง (${req.method} ${req.originalUrl})` });
+  });
+
   // --- Vite Middleware / Static Serving ---
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -565,7 +570,19 @@ async function startServer() {
     });
   }
 
-  const port = Number(process.env.PORT) || 3000;
+  app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+    console.error('Unhandled server error:', err);
+    if (req.originalUrl.startsWith('/api')) {
+      const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์';
+      res.status(500).json({ error: msg });
+      return;
+    }
+    res.status(500).send('Internal Server Error');
+  });
+
+  const portArgIdx = process.argv.indexOf('--port');
+  const cliPort = portArgIdx >= 0 ? Number(process.argv[portArgIdx + 1]) : NaN;
+  const port = Number(process.env.PORT) || (Number.isFinite(cliPort) && cliPort > 0 ? cliPort : 3000);
   app.listen(port, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${port}`);
   });

@@ -30,6 +30,14 @@ import {
 } from 'lucide-react';
 import { auth, googleAuthProvider } from '../lib/firebase';
 import {
+  ensureGoogleAdminDocInFirestore,
+  syncAuditLogToFirestore,
+  syncBookingRecordToFirestore,
+  syncClinicConfigToFirestore,
+  syncScheduleDateToFirestore,
+  syncTreatmentRecordToFirestore,
+} from '../lib/firestoreSync';
+import {
   FOUNDATION_LOGO_PATH,
   FOUNDATION_NAME,
   FOUNDATION_PHONE,
@@ -190,6 +198,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
     try {
       return JSON.parse(raw);
     } catch {
+      if (res.status === 404) {
+        return { error: 'ไม่พบการเชื่อมต่อบริการหลังบ้าน (HTTP 404) กรุณารีเฟรชหน้าเว็บแล้วลองใหม่อีกครั้ง' };
+      }
       return { error: res.ok ? 'ข้อมูลตอบกลับจากเซิร์ฟเวอร์ไม่ถูกต้อง' : `เซิร์ฟเวอร์ไม่ตอบสนองตามปกติ (HTTP ${res.status})` };
     }
   };
@@ -238,6 +249,27 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
       );
       setDashboard(data);
       setPauseReasonInput(data.config.pauseReason || '');
+      if (auth.currentUser?.emailVerified) {
+        if (adminUser.role === 'super_admin') {
+          void syncClinicConfigToFirestore(
+            data.config.bookingPaused,
+            data.config.pauseReason || '',
+            adminUser.role,
+          ).catch(() => {});
+          for (const d of data.config.dates) {
+            void syncScheduleDateToFirestore(
+              d.dateStr,
+              d.isOpen,
+              d.maxPerSlot,
+              d.note || '',
+              adminUser.role,
+            ).catch(() => {});
+          }
+        }
+        for (const row of data.bookings) {
+          void syncBookingRecordToFirestore(row, adminUser.role).catch(() => {});
+        }
+      }
     } catch (err: unknown) {
       setDashError(err instanceof Error ? err.message : 'ไม่สามารถโหลดข้อมูลได้');
     } finally {
@@ -313,6 +345,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
       });
       const json = await parseResponsePayload(res);
       if (!res.ok) throw new Error(json.error || 'บัญชี Google นี้ไม่มีสิทธิ์เข้าถึง');
+      if (json.user) {
+        await ensureGoogleAdminDocInFirestore(json.user);
+      }
       setAuthToken(json.token || idToken);
       setAdminUser(json.user);
     } catch (err: unknown) {
@@ -369,6 +404,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
         method: 'PATCH',
         body: JSON.stringify({ status }),
       });
+      const targetRow = dashboard?.bookings.find((b) => b.bookingId === bookingId);
+      if (targetRow && adminUser) {
+        await syncBookingRecordToFirestore(
+          { ...targetRow, status },
+          adminUser.role,
+        );
+        await syncAuditLogToFirestore({
+          action: 'UPDATE_QUEUE_STATUS',
+          targetPath: `bookings/${bookingId}`,
+          details: `เปลี่ยนสถานะคิว ${targetRow.queueNo} เป็น ${status}`,
+        });
+      }
       setActionMsg(`อัปเดตสถานะเป็น “${QUEUE_STATUS_LABELS[status]}” เรียบร้อย`);
       await loadDashboard();
     } catch (err: unknown) {
@@ -389,6 +436,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
           note: treatmentNote,
         }),
       });
+      if (adminUser) {
+        await syncTreatmentRecordToFirestore({
+          booking: completeModal,
+          providerName,
+          diagnosis: diagnosis || completeModal.disease,
+          note: treatmentNote,
+          role: adminUser.role,
+        });
+        await syncAuditLogToFirestore({
+          action: 'COMPLETE_TREATMENT',
+          targetPath: `bookings/${completeModal.bookingId}`,
+          details: `บันทึกการรักษาคิว ${completeModal.queueNo}`,
+        });
+      }
       setActionMsg(`บันทึกผลการรักษาคิว ${completeModal.queueNo} สำเร็จ`);
       setCompleteModal(null);
       setDiagnosis('');
@@ -427,6 +488,25 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
+      if (adminUser) {
+        await syncBookingRecordToFirestore(
+          {
+            ...editModal,
+            fullName: editFullName,
+            age: Number(editAge),
+            disease: editDisease,
+            phoneNumber: editPhone,
+            bookingDate: adminUser.role === 'super_admin' ? editDate : editModal.bookingDate,
+            bookingTime: adminUser.role === 'super_admin' ? editTime : editModal.bookingTime,
+          },
+          adminUser.role,
+        );
+        await syncAuditLogToFirestore({
+          action: 'EDIT_BOOKING',
+          targetPath: `bookings/${editModal.bookingId}`,
+          details: `แก้ไขข้อมูลคิว ${editModal.queueNo}`,
+        });
+      }
       setActionMsg(`บันทึกการแก้ไขคิว ${editModal.queueNo} เรียบร้อย`);
       setEditModal(null);
       await loadDashboard();
@@ -451,6 +531,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
           notes: specialNote,
         }),
       });
+      if (adminUser && res.bookingId) {
+        await syncBookingRecordToFirestore(
+          {
+            bookingId: res.bookingId,
+            queueNo: res.queueNo,
+            queueType: 'special',
+            bookingDate: res.bookingDate || selectedDate,
+            bookingTime: res.bookingTime || specialTime,
+            status: 'waiting',
+            fullName: res.fullName || specialName,
+            age: Number(specialAge),
+            disease: specialDisease || 'เร่งด่วน',
+            phoneNumber: specialPhone,
+            notes: specialNote,
+          },
+          adminUser.role,
+        );
+        await syncAuditLogToFirestore({
+          action: 'CREATE_SPECIAL_QUEUE',
+          targetPath: `bookings/${res.bookingId}`,
+          details: `สร้างคิวพิเศษ ${res.queueNo}`,
+        });
+      }
       setActionMsg(`ออกคิวพิเศษ ${res.queueNo} ให้คุณ ${res.fullName} เรียบร้อยแล้ว`);
       setSpecialName('');
       setSpecialAge('');
@@ -471,6 +574,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
           pauseReason: pauseReasonInput,
         }),
       });
+      if (adminUser) {
+        await syncClinicConfigToFirestore(paused, pauseReasonInput, adminUser.role);
+        await syncAuditLogToFirestore({
+          action: 'TOGGLE_CLINIC_PAUSE',
+          targetPath: 'clinic_config/settings',
+          details: paused ? 'ปิดรับจองชั่วคราว' : 'เปิดรับจองออนไลน์ตามปกติ',
+        });
+      }
       setActionMsg(paused ? 'ปิดรับจองออนไลน์ชั่วคราวแล้ว' : 'เปิดรับจองออนไลน์ตามปกติแล้ว');
       await loadDashboard();
       onConfigChanged();
@@ -480,6 +591,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
   };
 
   const handleToggleDateOpen = async (dateStr: string, isOpen: boolean) => {
+    const note = isOpen ? 'เปิดให้บริการตามปกติ' : 'ปิดรับจองโดยผู้ดูแลระบบ';
     try {
       await adminFetch('/api/admin/schedule', {
         method: 'PUT',
@@ -487,9 +599,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
           dateStr,
           isOpen,
           maxPerSlot: 5,
-          note: isOpen ? 'เปิดให้บริการตามปกติ' : 'ปิดรับจองโดยผู้ดูแลระบบ',
+          note,
         }),
       });
+      if (adminUser) {
+        await syncScheduleDateToFirestore(dateStr, isOpen, 5, note, adminUser.role);
+        await syncAuditLogToFirestore({
+          action: 'UPDATE_SCHEDULE_DATE',
+          targetPath: `schedule_dates/${dateStr}`,
+          details: `${dateStr}: ${isOpen ? 'OPEN' : 'CLOSED'}`,
+        });
+      }
       setActionMsg(`อัปเดตวัน ${formatThaiDateNumeric(dateStr)} เป็น ${isOpen ? 'เปิดรับจอง' : 'ปิดบริการ'} แล้ว`);
       await loadDashboard();
       onConfigChanged();

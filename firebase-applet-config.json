@@ -1,11 +1,12 @@
 {
-  "projectId": "ringed-set-d53bd",
-  "appId": "1:598373013515:web:f9e34b28dd71d0a82b8f0e",
-  "apiKey": "AIzaSyCpQV_vRySO3PSD-tU-Np6vvgPOPQJ0Cs4",
-  "authDomain": "ringed-set-d53bd.firebaseapp.com",
-  "storageBucket": "ringed-set-d53bd.firebasestorage.app",
-  "messagingSenderId": "598373013515",
+  "projectId": "traditional-chinese-medi-c9768",
+  "appId": "1:276694023523:web:84a4a94aa03b3ca57be756",
+  "apiKey": "AIzaSyCk6GFfHU5mvdOZDai6BwbHZIaKJ-cxaTM",
+  "authDomain": "traditional-chinese-medi-c9768.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-traditionalchine-016dfdb2-e5db-4911-b96f-f5590afc658e",
+  "storageBucket": "traditional-chinese-medi-c9768.firebasestorage.app",
+  "messagingSenderId": "276694023523",
   "measurementId": "",
-  "oAuthClientId": "598373013515-n7utbn1bbeoqeuc63gd3tii6tucvll9k.apps.googleusercontent.com",
+  "oAuthClientId": "276694023523-a26um0lavbe7u48sf8g38bns4pdikcoi.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

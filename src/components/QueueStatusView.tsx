@@ -15,6 +15,7 @@ import {
   getBangkokDateStr,
   type QueueStatus,
 } from '../lib/constants';
+import { subscribePublicQueue } from '../lib/firestoreSync';
 import type { TicketData } from '../lib/ticketExport';
 
 interface LiveQueueResponse {
@@ -92,11 +93,19 @@ export const QueueStatusView: React.FC<QueueStatusViewProps> = ({
 
   useEffect(() => {
     fetchLive(false);
+    const unsubQueue = subscribePublicQueue(today, (items) => {
+      if (items.length > 0) {
+        void fetchLive(true);
+      }
+    });
     const timer = setInterval(() => {
       fetchLive(true);
     }, 5000);
-    return () => clearInterval(timer);
-  }, [fetchLive]);
+    return () => {
+      unsubQueue();
+      clearInterval(timer);
+    };
+  }, [fetchLive, today]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
