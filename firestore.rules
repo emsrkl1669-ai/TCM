@@ -169,7 +169,7 @@ service cloud.firestore {
     // 2. Admin-Defined Open/Closed Calendar Dates (non-PII)
     match /schedule_dates/{dateStr} {
       allow get: if isValidDateId(dateStr);
-      allow list: if resource.data.dateStr is string;
+      allow list: if resource.data.isOpen in [true, false];
       allow create: if isValidDateId(dateStr)
         && isValidScheduleDate(incoming(), dateStr)
         && isSuperAdmin();

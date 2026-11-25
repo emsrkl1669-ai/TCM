@@ -100,7 +100,7 @@ export function subscribeScheduleDates(
   onData: (dates: FirestoreScheduleDate[]) => void,
 ): Unsubscribe {
   const path = 'schedule_dates';
-  const q = query(collection(db, path), where('dateStr', '>=', '2000-01-01'));
+  const q = query(collection(db, path), where('isOpen', 'in', [true, false]));
   return onSnapshot(
     q,
     (snap) => {
