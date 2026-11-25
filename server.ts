@@ -49,19 +49,6 @@ interface AdminRequest extends Request {
   adminUser?: AdminSessionUser;
 }
 
-interface OtpChallenge {
-  adminId: number;
-  username: string;
-  displayName: string;
-  email: string | null;
-  role: AdminRole;
-  code: string;
-  expiresAt: number;
-  attempts: number;
-}
-
-const otpChallenges = new Map<string, OtpChallenge>();
-
 function signStaffToken(payload: AdminSessionUser): string {
   const data = {
     ...payload,
@@ -317,79 +304,30 @@ async function startServer() {
         return res.status(401).json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
       }
 
-      const otpCode = String(crypto.randomInt(100000, 999999));
-      const challengeId = crypto.randomUUID();
-      otpChallenges.set(challengeId, {
-        adminId: admin.id,
+      await markAdminLastLogin(admin.id);
+
+      const sessionUser: AdminSessionUser = {
+        id: admin.id,
         username: admin.username,
         displayName: admin.displayName,
         email: admin.email,
         role: admin.role as AdminRole,
-        code: otpCode,
-        expiresAt: Date.now() + 5 * 60 * 1000,
-        attempts: 0,
-      });
-
-      res.json({
-        requiresOtp: true,
-        challengeId,
-        otpPreview: otpCode,
-        message: 'กรุณากรอกรหัส OTP 6 หลักเพื่อยืนยันตัวตนแบบสองขั้นตอน (MFA)',
-      });
-    } catch (error) {
-      console.error('Staff login error:', error);
-      res.status(500).json({ error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' });
-    }
-  });
-
-  app.post('/api/admin/auth/verify-otp', async (req, res) => {
-    try {
-      const { challengeId, otpCode } = req.body || {};
-      if (typeof challengeId !== 'string' || typeof otpCode !== 'string') {
-        return res.status(400).json({ error: 'ข้อมูล OTP ไม่ครบถ้วน' });
-      }
-
-      const challenge = otpChallenges.get(challengeId);
-      if (!challenge || Date.now() > challenge.expiresAt) {
-        otpChallenges.delete(challengeId);
-        return res.status(401).json({ error: 'รหัส OTP หมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่อีกครั้ง' });
-      }
-
-      challenge.attempts += 1;
-      if (challenge.attempts > 5) {
-        otpChallenges.delete(challengeId);
-        return res.status(429).json({ error: 'กรอก OTP ผิดเกินกำหนด กรุณาเข้าสู่ระบบใหม่' });
-      }
-
-      if (challenge.code !== otpCode.trim()) {
-        return res.status(401).json({ error: 'รหัส OTP ไม่ถูกต้อง' });
-      }
-
-      otpChallenges.delete(challengeId);
-      await markAdminLastLogin(challenge.adminId);
-
-      const sessionUser: AdminSessionUser = {
-        id: challenge.adminId,
-        username: challenge.username,
-        displayName: challenge.displayName,
-        email: challenge.email,
-        role: challenge.role,
       };
       const token = signStaffToken(sessionUser);
 
       await recordAuditLog({
         actorUsername: sessionUser.username,
         actorRole: sessionUser.role,
-        action: 'MFA_LOGIN_SUCCESS',
+        action: 'LOGIN_SUCCESS',
         targetType: 'admin',
         targetId: String(sessionUser.id),
-        details: 'เข้าสู่ระบบด้วย Username/Password + OTP',
+        details: 'เข้าสู่ระบบด้วย Username/Password',
       });
 
       res.json({ token, user: sessionUser });
     } catch (error) {
-      console.error('OTP verify error:', error);
-      res.status(500).json({ error: 'ไม่สามารถยืนยันรหัส OTP ได้' });
+      console.error('Staff login error:', error);
+      res.status(500).json({ error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' });
     }
   });
 

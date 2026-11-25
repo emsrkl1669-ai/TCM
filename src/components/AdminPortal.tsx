@@ -125,12 +125,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  // Username/Password + OTP state
+  // Username/Password login state
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [otpChallengeId, setOtpChallengeId] = useState('');
-  const [otpPreview, setOtpPreview] = useState('');
-  const [otpInput, setOtpInput] = useState('');
 
   // Workspace state
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -302,34 +299,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'เข้าสู่ระบบไม่สำเร็จ');
-      setOtpChallengeId(json.challengeId);
-      setOtpPreview(json.otpPreview || '');
-    } catch (err: unknown) {
-      setAuthError(err instanceof Error ? err.message : 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-    setAuthError('');
-    try {
-      const res = await fetch('/api/admin/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ challengeId: otpChallengeId, otpCode: otpInput }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'รหัส OTP ไม่ถูกต้อง');
       setAuthToken(json.token);
       setAdminUser(json.user);
-      setOtpChallengeId('');
-      setOtpInput('');
-      setOtpPreview('');
+      setPassword('');
     } catch (err: unknown) {
-      setAuthError(err instanceof Error ? err.message : 'การยืนยัน OTP ไม่สำเร็จ');
+      setAuthError(err instanceof Error ? err.message : 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     } finally {
       setAuthLoading(false);
     }
@@ -585,7 +559,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
                 <span>เข้าสู่ระบบด้วย Google</span>
               </button>
             </div>
-          ) : !otpChallengeId ? (
+          ) : (
             <form onSubmit={handlePasswordLogin} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-1.5">
@@ -619,51 +593,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
                 className="w-full min-h-[48px] px-5 py-3 bg-[#1E3A8A] hover:bg-[#172554] text-white font-semibold rounded-xl flex items-center justify-center gap-2"
               >
                 {authLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <KeyRound className="w-5 h-5" />}
-                <span>ตรวจสอบรหัสผ่านและรับรหัส OTP</span>
+                <span>เข้าสู่ระบบเจ้าหน้าที่</span>
               </button>
               <p className="text-xs text-slate-500">
-                กรอกชื่อผู้ใช้และรหัสผ่านเจ้าหน้าที่เพื่อยืนยันตัวตนด้วยรหัส OTP 6 หลัก
+                เข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่านเจ้าหน้าที่โดยตรง
               </p>
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-950 space-y-1">
-                <p className="font-semibold">ยืนยันตัวตนแบบสองขั้นตอน (MFA OTP)</p>
-                <p>กรุณากรอกรหัส OTP 6 หลัก (รหัสอ้างอิงสำหรับการทดสอบ: <strong className="font-mono-num">{otpPreview}</strong>)</p>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                  รหัส OTP 6 หลัก
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  required
-                  value={otpInput}
-                  onChange={(e) => setOtpInput(e.target.value)}
-                  placeholder="000000"
-                  className="w-full min-h-[48px] px-4 py-2 text-center text-2xl font-mono-num tracking-widest border border-slate-300 rounded-xl"
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpChallengeId('');
-                    setOtpInput('');
-                  }}
-                  className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold"
-                >
-                  ย้อนกลับ
-                </button>
-                <button
-                  type="submit"
-                  disabled={authLoading}
-                  className="flex-1 min-h-[48px] bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold rounded-xl"
-                >
-                  ยืนยันรหัส OTP
-                </button>
-              </div>
             </form>
           )}
         </div>
