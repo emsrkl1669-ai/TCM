@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { and, desc, eq, gte, inArray, lte, ne, asc } from 'drizzle-orm';
+import { and, desc, eq, gte, ilike, inArray, lte, ne, asc } from 'drizzle-orm';
 import { db } from './index.ts';
 import {
   admins,
@@ -57,13 +57,18 @@ export async function ensureInitialSeed(): Promise<void> {
       const [existingAdmin1571] = await db
         .select()
         .from(admins)
-        .where(eq(admins.username, 'Admin1571'));
+        .where(ilike(admins.username, 'Admin1571'));
 
       if (!existingAdmin1571) {
+        const [emailTaken] = await db
+          .select()
+          .from(admins)
+          .where(eq(admins.email, 'emsrkl1669@gmail.com'));
+
         await db
           .insert(admins)
           .values({
-            email: 'emsrkl1669@gmail.com',
+            email: emailTaken ? null : 'emsrkl1669@gmail.com',
             username: 'Admin1571',
             passwordHash: hashPassword('1571'),
             displayName: 'ผู้ดูแลระบบ (Admin1571)',
@@ -521,7 +526,7 @@ export async function findAdminByUsername(username: string) {
     const [admin] = await db
       .select()
       .from(admins)
-      .where(eq(admins.username, username.trim()));
+      .where(ilike(admins.username, username.trim()));
     return admin || null;
   } catch (error) {
     console.error('Database error in findAdminByUsername:', error);

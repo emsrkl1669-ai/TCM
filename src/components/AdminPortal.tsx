@@ -570,7 +570,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="กรอกชื่อผู้ใช้เจ้าหน้าที่"
+                  placeholder="Admin1571"
                   className="w-full min-h-[46px] px-4 py-2 border border-slate-300 rounded-xl"
                 />
               </div>
