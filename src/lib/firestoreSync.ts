@@ -137,7 +137,6 @@ export function subscribePublicQueue(
   const q = query(
     collection(db, path),
     where('bookingDate', '==', dateStr),
-    where('status', 'in', ['waiting', 'calling', 'completed', 'cancelled']),
   );
   return onSnapshot(
     q,

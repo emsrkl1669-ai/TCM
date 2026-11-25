@@ -184,7 +184,7 @@ service cloud.firestore {
     // 3. Public Non-PII Queue Feed
     match /public_queue/{bookingId} {
       allow get: if isValidId(bookingId);
-      allow list: if resource.data.bookingDate is string && resource.data.status in ['waiting', 'calling', 'completed', 'cancelled'];
+      allow list: if resource.data.bookingDate is string;
       allow create: if isValidId(bookingId)
         && isValidPublicQueueItem(incoming(), bookingId)
         && isAdmin();

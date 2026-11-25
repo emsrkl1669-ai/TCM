@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FileText, Loader2, Search, Stethoscope } from 'lucide-react';
 import { formatThaiDateNumeric } from '../lib/constants';
+import { safeParseJson } from '../lib/http';
 
 interface HistoryRecord {
   id: number;
@@ -31,7 +32,7 @@ export const HistoryView: React.FC = () => {
     setSearched(true);
     try {
       const res = await fetch(`/api/history?q=${encodeURIComponent(clean)}`);
-      const data = await res.json();
+      const data = await safeParseJson<{ records?: HistoryRecord[] }>(res);
       if (!res.ok) throw new Error(data.error || 'ไม่สามารถค้นหาประวัติได้');
       setRecords(data.records || []);
     } catch (err: unknown) {

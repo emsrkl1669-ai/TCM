@@ -22,6 +22,7 @@ import {
   subscribeClinicConfig,
   subscribeScheduleDates,
 } from './lib/firestoreSync';
+import { safeParseJson } from './lib/http';
 import type { TicketData } from './lib/ticketExport';
 
 interface ClinicConfigState {
@@ -59,7 +60,7 @@ export default function App() {
         fetch(`/api/queue/live?date=${encodeURIComponent(today)}`),
       ]);
       if (cfgRes.ok) {
-        const cfg = await cfgRes.json();
+        const cfg = await safeParseJson<Partial<ClinicConfigState>>(cfgRes);
         setConfig({
           bookingPaused: Boolean(cfg.bookingPaused),
           pauseReason: cfg.pauseReason || '',
@@ -67,7 +68,10 @@ export default function App() {
         });
       }
       if (liveRes.ok) {
-        const live = await liveRes.json();
+        const live = await safeParseJson<{
+          callingQueue?: { queueNo: string } | null;
+          stats?: { total?: number; waiting?: number };
+        }>(liveRes);
         setCallingQueueNo(live.callingQueue ? live.callingQueue.queueNo : null);
         setTodayTotal(live.stats?.total ?? 0);
         setTodayWaiting(live.stats?.waiting ?? 0);

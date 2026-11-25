@@ -16,6 +16,7 @@ import {
   type QueueStatus,
 } from '../lib/constants';
 import { subscribePublicQueue } from '../lib/firestoreSync';
+import { safeParseJson } from '../lib/http';
 import type { TicketData } from '../lib/ticketExport';
 
 interface LiveQueueResponse {
@@ -72,7 +73,7 @@ export const QueueStatusView: React.FC<QueueStatusViewProps> = ({
         const params = new URLSearchParams({ date: today });
         if (activeQuery.trim()) params.set('query', activeQuery.trim());
         const res = await fetch(`/api/queue/live?${params.toString()}`);
-        const json = await res.json();
+        const json = await safeParseJson<LiveQueueResponse>(res);
         if (!res.ok) throw new Error(json.error || 'ไม่สามารถโหลดสถานะคิวได้');
         setData(json);
         setLastUpdated(

@@ -406,16 +406,29 @@ async function startServer() {
         return res.status(403).json({ error: 'การเลื่อนคิวหรือย้ายช่วงเวลาสงวนสิทธิ์สำหรับผู้ดูแลระบบ (Super Admin)' });
       }
 
+      if (age !== undefined) {
+        const parsedAge = Number(age);
+        if (!Number.isInteger(parsedAge) || parsedAge < 1 || parsedAge > 120) {
+          return res.status(400).json({ error: 'กรุณากรอกอายุระหว่าง 1 - 120 ปี' });
+        }
+      }
+      if (phoneNumber !== undefined) {
+        const cleanPhone = typeof phoneNumber === 'string' ? phoneNumber.replace(/\D/g, '') : '';
+        if (cleanPhone.length < 9 || cleanPhone.length > 10) {
+          return res.status(400).json({ error: 'กรุณากรอกเบอร์โทรศัพท์ 9-10 หลักให้ถูกต้อง' });
+        }
+      }
+
       const updated = await updateBookingDetails(
         bookingId,
         {
-          ...(typeof fullName === 'string' && fullName.trim() ? { fullName } : {}),
+          ...(typeof fullName === 'string' && fullName.trim() ? { fullName: fullName.trim().slice(0, 120) } : {}),
           ...(age !== undefined ? { age: Number(age) } : {}),
-          ...(typeof disease === 'string' ? { disease } : {}),
-          ...(typeof phoneNumber === 'string' && phoneNumber.trim() ? { phoneNumber } : {}),
+          ...(typeof disease === 'string' ? { disease: disease.trim().slice(0, 160) } : {}),
+          ...(typeof phoneNumber === 'string' && phoneNumber.trim() ? { phoneNumber: phoneNumber.replace(/\D/g, '') } : {}),
           ...(typeof bookingDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(bookingDate) ? { bookingDate } : {}),
-          ...(typeof bookingTime === 'string' && bookingTime.trim() ? { bookingTime } : {}),
-          ...(typeof notes === 'string' ? { notes } : {}),
+          ...(typeof bookingTime === 'string' && bookingTime.trim() ? { bookingTime: bookingTime.trim().slice(0, 40) } : {}),
+          ...(typeof notes === 'string' ? { notes: notes.trim().slice(0, 300) } : {}),
         },
         { username: req.adminUser!.username, role: req.adminUser!.role },
       );
@@ -433,27 +446,31 @@ async function startServer() {
   app.post('/api/admin/bookings/special', requireAdmin, requireSuperAdmin, async (req: AdminRequest, res) => {
     try {
       const { fullName, age, disease, phoneNumber, bookingDate, bookingTime, notes } = req.body || {};
-      if (typeof fullName !== 'string' || fullName.trim().length < 2) {
-        return res.status(400).json({ error: 'กรุณากรอกชื่อ-นามสกุลผู้รับบริการ' });
+      if (typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.trim().length > 120) {
+        return res.status(400).json({ error: 'กรุณากรอกชื่อ-นามสกุลผู้รับบริการให้ถูกต้อง' });
       }
       const parsedAge = Number(age);
       if (!Number.isInteger(parsedAge) || parsedAge < 1 || parsedAge > 120) {
         return res.status(400).json({ error: 'กรุณากรอกอายุระหว่าง 1 - 120 ปี' });
       }
       const cleanPhone = typeof phoneNumber === 'string' ? phoneNumber.replace(/\D/g, '') : '';
-      if (cleanPhone.length < 9) {
-        return res.status(400).json({ error: 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง' });
+      if (cleanPhone.length < 9 || cleanPhone.length > 10) {
+        return res.status(400).json({ error: 'กรุณากรอกเบอร์โทรศัพท์ 9-10 หลักให้ถูกต้อง' });
       }
+      const safeDate =
+        typeof bookingDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(bookingDate)
+          ? bookingDate
+          : getBangkokDateStr(0);
 
       const result = await createSpecialBooking(
         {
           fullName: fullName.trim(),
           age: parsedAge,
-          disease: typeof disease === 'string' && disease.trim() ? disease.trim() : 'คิวพิเศษเร่งด่วน',
+          disease: typeof disease === 'string' && disease.trim() ? disease.trim().slice(0, 160) : 'คิวพิเศษเร่งด่วน',
           phoneNumber: cleanPhone,
-          bookingDate: typeof bookingDate === 'string' ? bookingDate : getBangkokDateStr(0),
-          bookingTime: typeof bookingTime === 'string' ? bookingTime : '09.00 - 09.30 น.',
-          notes: typeof notes === 'string' ? notes : undefined,
+          bookingDate: safeDate,
+          bookingTime: typeof bookingTime === 'string' && bookingTime.trim() ? bookingTime.trim().slice(0, 40) : '09.00 - 09.30 น.',
+          notes: typeof notes === 'string' ? notes.trim().slice(0, 300) : undefined,
         },
         { username: req.adminUser!.username, role: req.adminUser!.role },
       );

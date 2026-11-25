@@ -18,6 +18,7 @@ import {
   formatThaiDateFull,
   getBangkokDateStr,
 } from '../lib/constants';
+import { safeParseJson } from '../lib/http';
 import type { TicketData } from '../lib/ticketExport';
 
 interface ScheduleDate {
@@ -102,7 +103,7 @@ export const BookingView: React.FC<BookingViewProps> = ({
     setSlotsError('');
     fetch(`/api/slots?date=${encodeURIComponent(selectedDate)}`)
       .then(async (res) => {
-        const data = await res.json();
+        const data = await safeParseJson<{ slots?: SlotInfo[] }>(res);
         if (!res.ok) throw new Error(data.error || 'ไม่สามารถโหลดช่วงเวลาได้');
         return data;
       })
@@ -209,7 +210,7 @@ export const BookingView: React.FC<BookingViewProps> = ({
           bookingTime: selectedSlot,
         }),
       });
-      const data = await res.json();
+      const data = await safeParseJson<TicketData>(res);
       if (!res.ok) {
         throw new Error(data.error || 'ไม่สามารถบันทึกการจองได้');
       }

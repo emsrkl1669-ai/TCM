@@ -1653,19 +1653,25 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </form>
 
                 <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden">
-                  {staffList.map((s) => (
-                    <div key={s.id} className="px-4 py-3 flex items-center justify-between text-sm bg-white">
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {s.displayName} <span className="text-slate-500 font-mono-num">({s.username})</span>
-                        </p>
-                        <p className="text-xs text-slate-500">{s.email || 'เข้าสู่ระบบด้วย Username / Password'}</p>
-                      </div>
-                      <span className="text-xs font-semibold text-[#1E3A8A]">
-                        {s.role === 'super_admin' ? 'ผู้ดูแลระบบ (Super Admin)' : 'เจ้าหน้าที่ (Staff)'}
-                      </span>
+                  {staffList.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-sm text-slate-500 bg-white">
+                      ยังไม่มีบัญชีเจ้าหน้าที่ในระบบ
                     </div>
-                  ))}
+                  ) : (
+                    staffList.map((s) => (
+                      <div key={s.id} className="px-4 py-3 flex items-center justify-between text-sm bg-white">
+                        <div>
+                          <p className="font-semibold text-slate-900">
+                            {s.displayName} <span className="text-slate-500 font-mono-num">({s.username})</span>
+                          </p>
+                          <p className="text-xs text-slate-500">{s.email || 'เข้าสู่ระบบด้วย Username / Password'}</p>
+                        </div>
+                        <span className="text-xs font-semibold text-[#1E3A8A]">
+                          {s.role === 'super_admin' ? 'ผู้ดูแลระบบ (Super Admin)' : 'เจ้าหน้าที่ (Staff)'}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </section>
 
@@ -1685,20 +1691,28 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {auditLogs.map((log) => (
-                        <tr key={log.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-2.5 text-slate-500 tabular-nums whitespace-nowrap">
-                            {new Date(log.createdAt).toLocaleString('th-TH')}
+                      {auditLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-500">
+                            ไม่มีบันทึกการใช้งานระบบ
                           </td>
-                          <td className="px-4 py-2.5 font-semibold text-slate-900">
-                            {log.actorUsername}
-                          </td>
-                          <td className="px-4 py-2.5 font-mono-num text-xs text-[#1E3A8A]">
-                            {log.action}
-                          </td>
-                          <td className="px-4 py-2.5 text-slate-700">{log.details || '-'}</td>
                         </tr>
-                      ))}
+                      ) : (
+                        auditLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-2.5 text-slate-500 tabular-nums whitespace-nowrap">
+                              {new Date(log.createdAt).toLocaleString('th-TH')}
+                            </td>
+                            <td className="px-4 py-2.5 font-semibold text-slate-900">
+                              {log.actorUsername}
+                            </td>
+                            <td className="px-4 py-2.5 font-mono-num text-xs text-[#1E3A8A]">
+                              {log.action}
+                            </td>
+                            <td className="px-4 py-2.5 text-slate-700">{log.details || '-'}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
