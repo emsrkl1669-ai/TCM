@@ -11,6 +11,8 @@ import {
   ClipboardList,
   Download,
   Edit3,
+  Eye,
+  EyeOff,
   FileSpreadsheet,
   KeyRound,
   Loader2,
@@ -128,6 +130,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
   // Username/Password login state
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Workspace state
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -181,6 +184,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
 
   const [actionMsg, setActionMsg] = useState('');
 
+  const parseResponsePayload = async (res: Response) => {
+    const raw = await res.text();
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return { error: res.ok ? 'ข้อมูลตอบกลับจากเซิร์ฟเวอร์ไม่ถูกต้อง' : `เซิร์ฟเวอร์ไม่ตอบสนองตามปกติ (HTTP ${res.status})` };
+    }
+  };
+
   const getBearerToken = useCallback(async () => {
     if (authToken.startsWith('staff.')) return authToken;
     if (auth.currentUser) {
@@ -200,7 +213,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
           Authorization: `Bearer ${token}`,
         },
       });
-      const json = await res.json();
+      const json = await parseResponsePayload(res);
+      if (res.status === 401) {
+        setAdminUser(null);
+        setAuthToken('');
+        setAuthError(json.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        throw new Error(json.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+      }
       if (!res.ok) {
         throw new Error(json.error || 'การดำเนินการไม่สำเร็จ');
       }
@@ -263,6 +282,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
     if (activeTab === 'staff') loadStaffAndLogs();
   }, [activeTab, loadReports, loadStaffAndLogs]);
 
+  const formatGoogleAuthError = (err: unknown): string => {
+    if (err && typeof err === 'object' && 'code' in err) {
+      const code = String((err as { code?: string }).code || '');
+      if (code === 'auth/unauthorized-domain') {
+        return 'โดเมนนี้ยังไม่ได้รับอนุญาตสำหรับ Google Sign-In กรุณาเข้าสู่ระบบด้วยแท็บ "ชื่อผู้ใช้ + รหัสผ่าน" แทน';
+      }
+      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+        return 'เบราว์เซอร์บล็อกหน้าต่างเข้าสู่ระบบ Google กรุณาอนุญาต Popup หรือเข้าสู่ระบบด้วย "ชื่อผู้ใช้ + รหัสผ่าน"';
+      }
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        return 'ยกเลิกการเข้าสู่ระบบด้วย Google แล้ว กรุณาลองใหม่หรือใช้ "ชื่อผู้ใช้ + รหัสผ่าน"';
+      }
+    }
+    return err instanceof Error ? err.message : 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ';
+  };
+
   const handleGoogleSignIn = async () => {
     setAuthLoading(true);
     setAuthError('');
@@ -276,12 +311,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
           Authorization: `Bearer ${idToken}`,
         },
       });
-      const json = await res.json();
+      const json = await parseResponsePayload(res);
       if (!res.ok) throw new Error(json.error || 'บัญชี Google นี้ไม่มีสิทธิ์เข้าถึง');
-      setAuthToken(idToken);
+      setAuthToken(json.token || idToken);
       setAdminUser(json.user);
     } catch (err: unknown) {
-      setAuthError(err instanceof Error ? err.message : 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ');
+      setAuthError(formatGoogleAuthError(err));
     } finally {
       setAuthLoading(false);
     }
@@ -292,13 +327,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
     setAuthLoading(true);
     setAuthError('');
     try {
+      const cleanUsername = username.trim();
+      if (!cleanUsername || !password) {
+        throw new Error('กรุณากรอกชื่อผู้ใช้และรหัสผ่านให้ครบถ้วน');
+      }
       const res = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: cleanUsername, password }),
       });
-      const json = await res.json();
+      const json = await parseResponsePayload(res);
       if (!res.ok) throw new Error(json.error || 'เข้าสู่ระบบไม่สำเร็จ');
+      if (!json.token || !json.user) {
+        throw new Error('ไม่สามารถสร้างเซสชันผู้ดูแลระบบได้ กรุณาลองใหม่อีกครั้ง');
+      }
       setAuthToken(json.token);
       setAdminUser(json.user);
       setPassword('');
@@ -562,30 +604,47 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
           ) : (
             <form onSubmit={handlePasswordLogin} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+                <label htmlFor="admin-username" className="block text-sm font-semibold text-slate-800 mb-1.5">
                   ชื่อผู้ใช้ (Username)
                 </label>
                 <input
+                  id="admin-username"
                   type="text"
                   required
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Admin1571"
-                  className="w-full min-h-[46px] px-4 py-2 border border-slate-300 rounded-xl"
+                  className="w-full min-h-[46px] px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+                <label htmlFor="admin-password" className="block text-sm font-semibold text-slate-800 mb-1.5">
                   รหัสผ่าน (Password)
                 </label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full min-h-[46px] px-4 py-2 border border-slate-300 rounded-xl"
-                />
+                <div className="relative">
+                  <input
+                    id="admin-password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full min-h-[46px] pl-4 pr-11 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-slate-500 hover:text-slate-800 rounded-lg"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               <button
                 type="submit"
@@ -1428,7 +1487,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onConfigChanged }) => 
                         <p className="font-semibold text-slate-900">
                           {s.displayName} <span className="text-slate-500 font-mono-num">({s.username})</span>
                         </p>
-                        <p className="text-xs text-slate-500">{s.email || 'เข้าสู่ระบบด้วย Username + OTP'}</p>
+                        <p className="text-xs text-slate-500">{s.email || 'เข้าสู่ระบบด้วย Username / Password'}</p>
                       </div>
                       <span className="text-xs font-semibold text-[#1E3A8A]">
                         {s.role === 'super_admin' ? 'ผู้ดูแลระบบ (Super Admin)' : 'เจ้าหน้าที่ (Staff)'}

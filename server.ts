@@ -268,23 +268,29 @@ async function startServer() {
         return res.status(403).json({ error: `อีเมล ${decoded.email} ยังไม่ได้รับสิทธิ์เจ้าหน้าที่ กรุณาติดต่อผู้ดูแลระบบ` });
       }
 
+      await markAdminLastLogin(adminRecord.id);
+
+      const sessionUser: AdminSessionUser = {
+        id: adminRecord.id,
+        username: adminRecord.username,
+        displayName: adminRecord.displayName,
+        email: adminRecord.email,
+        role: adminRecord.role as AdminRole,
+      };
+      const sessionToken = signStaffToken(sessionUser);
+
       await recordAuditLog({
-        actorUsername: adminRecord.username,
-        actorRole: adminRecord.role,
+        actorUsername: sessionUser.username,
+        actorRole: sessionUser.role,
         action: 'GOOGLE_SIGN_IN',
         targetType: 'admin',
-        targetId: String(adminRecord.id),
-        details: `เข้าสู่ระบบด้วย Google (${adminRecord.email})`,
+        targetId: String(sessionUser.id),
+        details: `เข้าสู่ระบบด้วย Google (${sessionUser.email})`,
       });
 
       res.json({
-        user: {
-          id: adminRecord.id,
-          username: adminRecord.username,
-          displayName: adminRecord.displayName,
-          email: adminRecord.email,
-          role: adminRecord.role,
-        },
+        token: sessionToken,
+        user: sessionUser,
       });
     } catch (error) {
       console.error('Google admin auth failed:', error);

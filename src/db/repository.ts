@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { and, desc, eq, gte, ilike, inArray, lte, ne, asc } from 'drizzle-orm';
+import { and, desc, eq, gte, ilike, inArray, lte, ne, or, asc } from 'drizzle-orm';
 import { db } from './index.ts';
 import {
   admins,
@@ -483,7 +483,7 @@ export async function findOrProvisionGoogleAdmin(uid: string, email: string, nam
     const [existing] = await db
       .select()
       .from(admins)
-      .where(eq(admins.email, normalizedEmail));
+      .where(ilike(admins.email, normalizedEmail));
 
     if (existing) {
       if (!existing.isActive) return null;
@@ -497,6 +497,20 @@ export async function findOrProvisionGoogleAdmin(uid: string, email: string, nam
 
     // Automatically authorize owner email as super_admin
     if (normalizedEmail === 'emsrkl1669@gmail.com') {
+      const [existingAdmin1571] = await db
+        .select()
+        .from(admins)
+        .where(ilike(admins.username, 'Admin1571'));
+
+      if (existingAdmin1571 && !existingAdmin1571.email) {
+        const [linked] = await db
+          .update(admins)
+          .set({ uid, email: normalizedEmail, isActive: true, lastLogin: new Date() })
+          .where(eq(admins.id, existingAdmin1571.id))
+          .returning();
+        return linked;
+      }
+
       const [created] = await db
         .insert(admins)
         .values({
@@ -523,10 +537,16 @@ export async function findOrProvisionGoogleAdmin(uid: string, email: string, nam
 export async function findAdminByUsername(username: string) {
   try {
     await ensureInitialSeed();
+    const clean = username.trim();
+    if (!clean) return null;
     const [admin] = await db
       .select()
       .from(admins)
-      .where(ilike(admins.username, username.trim()));
+      .where(
+        clean.includes('@')
+          ? or(ilike(admins.username, clean), ilike(admins.email, clean))
+          : ilike(admins.username, clean),
+      );
     return admin || null;
   } catch (error) {
     console.error('Database error in findAdminByUsername:', error);
@@ -1036,7 +1056,7 @@ export async function createOrUpdateStaffAccount(
     const [existing] = await db
       .select()
       .from(admins)
-      .where(eq(admins.username, cleanUsername));
+      .where(ilike(admins.username, cleanUsername));
 
     if (existing) {
       const [updated] = await db
